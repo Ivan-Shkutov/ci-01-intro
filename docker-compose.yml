@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:13-alpine
+    container_name: jira-postgres
+    environment:
+      POSTGRES_PASSWORD: jira_password
+      POSTGRES_USER: jira_user
+      POSTGRES_DB: jiradb
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    networks:
+      - jira-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jira_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  jira:
+    image: atlassian/jira-software:9.14.0
+    container_name: jira-software
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ATL_JDBC_URL: "jdbc:postgresql://postgres:5432/jiradb"
+      ATL_JDBC_USER: jira_user
+      ATL_JDBC_PASSWORD: jira_password
+      ATL_DB_DRIVER: "org.postgresql.Driver"
+      ATL_DB_TYPE: "postgres72"
+    volumes:
+      - ./jira-data:/var/atlassian/application-data/jira
+    ports:
+      - "8080:8080"
+    networks:
+      - jira-network
+    restart: unless-stopped
+
+networks:
+  jira-network:
+    driver: bridge
